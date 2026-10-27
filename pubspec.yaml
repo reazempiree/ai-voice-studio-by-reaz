@@ -1,0 +1,29 @@
+name: ai_voice_studio
+description: Private Bengali and English reference voice studio with an optional self-hosted inference engine.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+  flutter: '>=3.35.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  file_picker: 10.3.3
+  http: 1.6.0
+  just_audio: 0.10.5
+  path_provider: 2.1.5
+  share_plus: 11.1.0
+  url_launcher: 6.3.2
+  flutter_secure_storage: 9.2.4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/OFL.txt
+  fonts:
+    - family: NotoSerifBengali
+      fonts:
+        - asset: assets/fonts/NotoSerifBengali.ttf
