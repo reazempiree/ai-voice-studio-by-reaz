@@ -57,3 +57,8 @@ The reusable cloud setup script executed successfully in a fresh API venv;
 install/start instructions and optional gated-model HF_TOKEN requirement were
 saved to the environment draft. Saving does not publish the environment or prove
 restoration in a fresh task. Live inference servers are not assumed to survive.
+
+Final compatible inference-lock revalidation also passed the complete real
+English HTTP flow in160.98seconds, including MP3 conversion and deletion.
+The source checkout is clean after committed delivery; pull request:
+https://github.com/reazempiree/ai-voice-studio-by-reaz/pull/1

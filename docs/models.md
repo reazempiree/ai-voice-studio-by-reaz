@@ -160,3 +160,9 @@ only audio uploads are accepted; no claim is made that this eliminates all risk.
 `backend/requirements-f5.lock.txt` records the actual compatible environment.
 Do not call this inference deployment production-secure until the upstream
 constraint/advisory conflict is resolved and the model is revalidated.
+
+After the compatible support-package repairs and the recorded inference lock,
+the full genuine English HTTP/API test was repeated successfully: 4.5653 seconds
+of new WAV speech, 160.98 seconds wall time, actual 93,164-byte MP3 conversion,
+and confirmed private job deletion. `pip check` passed. The remaining Pillow
+advisories above are unchanged; a successful synthesis test does not resolve them.
