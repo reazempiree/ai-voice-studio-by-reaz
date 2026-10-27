@@ -1,3 +1,56 @@
+# Version0.2 native English inference validation
+
+The original server-credential error was caused by routing all synthesis through
+an HTTP adapter. Version0.2 adds Pocket TTS/sherpa-onnx native inference for
+English. Bengali remains unavailable locally. The exact runtime/ABI limitation,
+licenses and evidence are in [android-inference.md](android-inference.md).
+
+- Executable source: `9eca5a451f3fc0386c0ca2a5ba7370a9ab11e82c`.
+- Format and Flutter analysis passed; **53 Flutter tests passed**. These include
+  no-server local routing, Bengali refusal, model/cancellation/error handling,
+  schema1 preservation, optional transcript, and a320×640license dialog.
+- Optional backend regression tests: **36 passed** (two upstream deprecation
+  warnings). It is not needed for local English or WAV export.
+- The exact app Dart/FFI worker performed real int8 model inference using two
+  distinct reference samples with fixed text/seed. New24kHz PCM16 WAV outputs
+  were2.96sec and3.28sec, with nonzero RMS and distinct waveform hashes. Actual
+  native callback cancellation passed in1.225sec with no partial output retained.
+- A final real run produced2.96sec audio in1.995sec on this Linux CPU;
+  process peak RSS806,346,752bytes includes the Dart process. This is not an
+  Android latency/RAM benchmark or a minimum phone memory specification.
+- Real model installation checks covered official98,336,520-byte download,
+  Range recovery, published SHA256, exact installed files, corruption, removal
+  and extraction cancellation. Model files are not bundled in the APK.
+- Local safe-install APK compiled as `studio.reaz.ai_voice_studio.offline`,
+  version0.2.0+2,51,138,395bytes. Signature verification, onlyARM64 libraries,
+  16KB APK alignment and both ONNX/CAPI ELF LOAD alignment checks passed.
+- `adb devices -l` listed **no attached Android device**. Native Android
+  decoding/model execution with the user's voice still requires physical-phone
+  validation. No subjective speaker-similarity score or Bengali success is claimed.
+- Current GitHub Actions run:
+  https://github.com/reazempiree/ai-voice-studio-by-reaz/actions/runs/40513732949
+  **Succeeded**: all53 Flutter tests, analysis/format, actual Pocket reference
+  inference/cancellation, both ARM64 builds/uploads, all36 backend tests and API audit.
+  The normal-ID artifact is12738726622; safe-install artifact is12739775364:
+  https://github.com/reazempiree/ai-voice-studio-by-reaz/actions/runs/40513732949/artifacts/12739775364
+  Both were confirmed uploaded and unexpired. No tagged release was published.
+
+The safe-install package coexists with the old test-signed app and leaves its
+private profiles/history there. It cannot automatically read another Android
+app's sandbox. A same-ID update requires the original private signing key, which
+was not retained by earlier ephemeral CI builds. Do not uninstall the old app to
+force a mismatched-key update.
+
+**Open requirements:** Bengali phone-only reference cloning, physical-phone
+inference validation, a local MP3 encoder, and stable private production signing.
+English generation and WAV use no backend after model installation; Bengali and
+MP3 retain the optional separate backend, whose own security limitations remain
+below. This task is not declared a fully solved Bengali/offline product.
+
+---
+
+## Historical0.1 backend validation (preserved evidence)
+
 # Validation record — 2026-10-27
 
 ## Automated checks and APK

@@ -146,3 +146,24 @@ labeled “কণ্ঠশিল্প অফলাইন”. This safe-install 
 preserves its private library there. It cannot silently read or migrate the other
 app's sandbox; original recordings must be reimported for the separate trial.
 Private stable signing is required for reliable future in-place production updates.
+
+
+## Final0.2 delivery checks
+
+GitHub Actions run40513732949 succeeded for source9eca5a4. It ran53 Flutter
+unit/widget tests plus real Pocket reference-conditioned synthesis and native
+cancellation using the exact app worker, then built/uploaded both Android APKs.
+The separate backend job passed36 tests and its API dependency audit. The
+safe-install artifact is12739775364 (`AI-Voice-Studio-Offline-Safe-Install-APK`).
+
+A local safe-install APK was51.1MB, ARM64 only, version0.2.0+2. APK signature
+verification and16KB ZIP alignment passed; both ONNX Runtime and sherpa C API
+ELF LOAD segments were16KB aligned. These checks establish packaging compatibility,
+not physical-phone inference. `adb devices -l` showed no attached Android device.
+
+Real native cancellation completed in1.225seconds without retaining partial WAV.
+A final Linux app-worker run rendered2.96seconds in1.995seconds with process peak
+RSS806,346,752bytes (including Dart). This is a measured Linux result, not a
+minimum phone RAM or Android performance promise. Bengali local synthesis,
+physical-phone validation, local MP3 encoding and stable private production
+signing remain open; no fully solved Bengali/offline product is claimed.
