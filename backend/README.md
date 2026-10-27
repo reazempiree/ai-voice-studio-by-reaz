@@ -45,10 +45,20 @@ English adapter installation:
 python3 -m venv .venv-f5
 .venv-f5/bin/pip install torch==2.8.0+cpu torchaudio==2.8.0+cpu \
   --index-url https://download.pytorch.org/whl/cpu
-.venv-f5/bin/pip install f5-tts==1.1.22
+.venv-f5/bin/python -m pip install --upgrade pip==26.2.2 setuptools==84.1.0
+.venv-f5/bin/python -m pip install -r backend/requirements-f5.lock.txt
 export F5_PYTHON="$PWD/.venv-f5/bin/python"
 export VOICE_DEVICE=cpu
 ```
+
+The Linux/Python 3.12 CPU inference lock records the tested environment. Its
+upstream Gradio dependency restricts Pillow below 13, while the current security
+advisories require Pillow 13.0.0. **The model runtime therefore still has known
+Pillow advisories and is not security-clean for production deployment.** The
+service accepts audio only and does not launch Gradio, but that does not remove
+the installed dependency finding. Keep it private and review upstream fixes;
+do not loosen a version constraint or disable verification to hide the finding.
+API-server dependencies are separately audited and clean at the recorded date.
 
 These commands target the documented API. See `docs/models.md` for actual test
 results and limitations; installation alone is not a quality or performance

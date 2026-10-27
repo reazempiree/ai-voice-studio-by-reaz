@@ -132,3 +132,31 @@ check, not a guarantee against undiscovered vulnerabilities.
 
 These results support the optional English backend integration. They do not
 complete the primary requirement of Bengali cloning entirely on a phone.
+
+
+A second genuine test exercised the full HTTP API after isolating Python with
+`-I`: authenticated capability discovery, reference upload/decode, English model
+job, polling, WAV retrieval, `/v1/convert` MP3 encoding, and job deletion. It
+produced 4.5653 seconds of speech in 178.92 seconds and a 93,164-byte MP3;
+post-deletion lookup correctly returned 404. The test used the upstream example
+reference and a new synthesis sentence, not prerecorded output. It does not
+assess subjective speaker similarity or Bengali pronunciation. A repository
+`coverage/` directory initially shadowed an optional Python module; isolated
+model subprocess imports corrected that integration failure.
+
+
+## Separate inference dependency audit
+
+The API audit is not a clean bill for the neural Python environment. A separate
+installed-runtime audit found affected filelock, Pillow, pip and setuptools.
+Updated pip 26.2.2 and setuptools 84.1.0, and selected filelock 3.20.3, which
+satisfies cached-path's `<4` constraint and has no advisories in the checked
+PyPI metadata. `pip check` passes. Pillow 12.3.0 still has **37 advisory records**
+in the current feed; fixes require 13.0.0, while upstream Gradio 6.30.0 declares
+`Pillow<13`. Installing 13 creates a dependency conflict, so that incompatible
+change was reverted rather than concealed. This is a remaining upstream security
+limitation of the optional inference runtime. No Gradio service is launched and
+only audio uploads are accepted; no claim is made that this eliminates all risk.
+`backend/requirements-f5.lock.txt` records the actual compatible environment.
+Do not call this inference deployment production-secure until the upstream
+constraint/advisory conflict is resolved and the model is revalidated.
