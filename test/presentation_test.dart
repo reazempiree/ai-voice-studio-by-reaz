@@ -273,4 +273,32 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('model license confirmation stays usable on a small phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(VoiceStudioApp(controller: controller));
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pumpAndSettle();
+    final download = find.byKey(const Key('download-local-model'));
+    await tester.scrollUntilVisible(
+      download,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(download);
+    await tester.pumpAndSettle();
+    await tester.tap(download);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('সম্মত, নামান'), findsOneWidget);
+    await tester.tap(find.text('ফিরে যান'));
+    await tester.pumpAndSettle();
+    expect(controller.pocket.busy, isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

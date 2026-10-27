@@ -91,6 +91,7 @@ class _StudioHomeState extends State<StudioHome> {
       await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
+          scrollable: true,
           title: Text(title),
           content: Text(message, style: const TextStyle(height: 1.8)),
           actions: [

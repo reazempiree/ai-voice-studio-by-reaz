@@ -108,7 +108,19 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: backend/requirements.lock.txt
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Ensure FFmpeg using bounded official Ubuntu repositories
+        run: |
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            ffmpeg -version | head -n 1
+          else
+            options=(-o Acquire::Retries=1 -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+            if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+              sudo apt-get "${options[@]}" -o Dir::Etc::sourcelist=sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=- update
+            else
+              sudo apt-get "${options[@]}" update
+            fi
+            sudo apt-get "${options[@]}" install -y --no-install-recommends ffmpeg
+          fi
       - run: python -m pip install -r backend/requirements.lock.txt pip-audit
       - run: python -m pytest backend/tests -q
       - run: python -m pip_audit -r backend/requirements.lock.txt
