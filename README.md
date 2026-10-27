@@ -41,7 +41,11 @@ These builds currently use Android **test signing**, not a private production
 release identity. Ephemeral CI keys may change, so installing a later test build
 may require uninstalling the old one (which deletes private app data). Configure
 private release signing before trusted public distribution. Never commit a
-private release keystore or its password.
+private release keystore or its password. Optional CI signing reads repository secrets
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, and
+`ANDROID_KEY_ALIAS`. They must describe the same safely backed-up private key.
+The available GitHub integration cannot manage repository secrets (HTTP 403), so
+private production signing has not been configured or tested.
 
 Android requirements: Android 8.0/API 26 or newer, ARM64. There is no measured
 phone RAM minimum for AI inference because AI inference is not executed there.
@@ -76,7 +80,8 @@ explicit permission to clone. Verify pronunciation and output before sharing.
 
 ## Privacy and reliability
 
-Only the Internet permission is requested; file selection/export uses Android's
+The app requests Internet access; audio dependencies also declare network-state
+access and a signature-only internal receiver permission. File selection/export uses Android's
 system picker and no broad storage or microphone permission. Android cloud backup
 is disabled. Profiles, transcripts, and history are in private app storage.
 Reference metadata/history writes are serialized with atomic replacement and a

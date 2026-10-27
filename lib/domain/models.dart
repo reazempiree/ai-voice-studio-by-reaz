@@ -137,3 +137,27 @@ String validateText(String value) {
 
 String encodeState(Map<String, dynamic> state) =>
     jsonEncode({'schema': 1, ...state});
+
+/// Compares stable release versions; ignores malformed and prerelease tags.
+bool isNewerVersion(String candidate, String installed) {
+  List<int>? parse(String value) {
+    final match = RegExp(
+      r'^v?(\d+)\.(\d+)\.(\d+)(?:\+\d+)?$',
+    ).firstMatch(value);
+    if (match == null) {
+      return null;
+    }
+    return [for (var i = 1; i <= 3; i++) int.parse(match.group(i)!)];
+  }
+
+  final next = parse(candidate), current = parse(installed);
+  if (next == null || current == null) {
+    return false;
+  }
+  for (var i = 0; i < 3; i++) {
+    if (next[i] != current[i]) {
+      return next[i] > current[i];
+    }
+  }
+  return false;
+}

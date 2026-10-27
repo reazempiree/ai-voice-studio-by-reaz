@@ -42,7 +42,7 @@ def main():
         started = time.monotonic()
         # Preserve virtualenv executable symlinks; resolving to the base binary
         # would discard that environment's installed model dependencies.
-        result = subprocess.run([str(args.python.absolute()), str(Path(__file__).with_name("worker.py")), str(request)], env=environment, timeout=1800)
+        result = subprocess.run([str(args.python.absolute()), "-I", str(Path(__file__).with_name("worker.py").resolve()), str(request)], env=environment, timeout=1800)
         result.check_returncode()
         with wave.open(str(args.output), "rb") as audio:
             if audio.getnchannels() != 1 or audio.getsampwidth() != 2 or audio.getframerate() != 24000:

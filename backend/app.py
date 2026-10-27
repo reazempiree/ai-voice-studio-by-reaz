@@ -245,7 +245,7 @@ def execute(job, language):
             worker_env = dict(os.environ)
             for variable in ("HF_TOKEN", "VOICE_BACKEND_TOKEN"):
                 worker_env.pop(variable, None)
-            process = subprocess.Popen([interpreter, str(Path(__file__).with_name("worker.py")), str(folder / "request.json")], stdout=subprocess.DEVNULL, stderr=errors, start_new_session=True, env=worker_env)
+            process = subprocess.Popen([interpreter, "-I", str(Path(__file__).with_name("worker.py").resolve()), str(folder / "request.json")], cwd=folder, stdout=subprocess.DEVNULL, stderr=errors, start_new_session=True, env=worker_env)
             job["process"] = process
             if job["cancel"].is_set():
                 process.kill()

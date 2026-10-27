@@ -616,13 +616,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       throw const StudioException('নতুন সংস্করণ পরীক্ষা করা যায়নি।');
     }
     final j = jsonDecode(response.body) as Map<String, dynamic>;
-    final tag = (j['tag_name'] as String).replaceFirst(RegExp('^v'), '');
-    final parts = tag.split('.').map(int.tryParse).toList();
-    if (parts.length != 3 || parts.any((x) => x == null)) {
-      throw const StudioException('সংস্করণের তথ্য সঠিক নয়।');
-    }
-    final newer =
-        parts[0]! > 0 || parts[1]! > 1 || (parts[1] == 1 && parts[2]! > 0);
+    final tag = j['tag_name'] as String;
+    final installed =
+        await AudioService.channel.invokeMethod<String>('version') ?? '0.1.0';
+    final newer = isNewerVersion(tag, installed);
     if (newer) {
       updateUrl =
           'https://github.com/reazempiree/ai-voice-studio-by-reaz/releases/latest';

@@ -16,6 +16,10 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "studio.reaz/audio")
             .setMethodCallHandler { call, result ->
+                if (call.method == "version") {
+                    result.success(packageManager.getPackageInfo(packageName, 0).versionName ?: "0.1.0")
+                    return@setMethodCallHandler
+                }
                 if (call.method != "inspect") {
                     result.notImplemented()
                     return@setMethodCallHandler
