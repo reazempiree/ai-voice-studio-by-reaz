@@ -1,13 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="কণ্ঠশিল্প"
+        android:label="${studioAppLabel}"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:name=".MainActivity"
+            android:name="studio.reaz.ai_voice_studio.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

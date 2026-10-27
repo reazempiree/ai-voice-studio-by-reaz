@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../application/app_controller.dart';
 import '../domain/models.dart';
+import '../data/pocket_model_store.dart';
 import 'components.dart';
 import 'theme.dart';
 
@@ -117,7 +118,8 @@ class _StudioHomeState extends State<StudioHome> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => _ImportSheet(profile: replace),
+      builder: (context) =>
+          _ImportSheet(profile: replace, requiresTranscript: !c.isLocal),
     );
     if (result == null) {
       return;
@@ -303,9 +305,9 @@ class _StudioHomeState extends State<StudioHome> {
     ),
     const SizedBox(height: 20),
     NoticePanel(
-      message: c.capabilities?.available == true
-          ? 'সংযুক্ত নিজস্ব সার্ভারে কণ্ঠ সংশ্লেষণ হবে। নমুনা পাঠানোর আগে আপনার অনুমতি নেওয়া হবে।'
-          : 'এই সংস্করণে ফোনের ভেতরে কণ্ঠ ক্লোনিং চালু নেই। বিনামূল্যের নিজস্ব সার্ভার সংযুক্ত করতে সেটিংস দেখুন।',
+      message: c.isLocal
+          ? 'ফোনে ইংরেজি কণ্ঠ ক্লোনিং: মডেল একবার নামানোর পর সার্ভার বা টোকেন ছাড়াই তৈরি করুন। বাংলা ফোনের মডেলে সমর্থিত নয়।'
+          : 'সংযুক্ত নিজস্ব সার্ভারে কণ্ঠ সংশ্লেষণ হবে। নমুনা পাঠানোর আগে আপনার অনুমতি নেওয়া হবে।',
     ),
     const SizedBox(height: 24),
     LayoutBuilder(
@@ -373,12 +375,47 @@ class _StudioHomeState extends State<StudioHome> {
         title: 'নতুন অডিও তৈরি',
         subtitle: 'আপনার অনুমোদিত কণ্ঠের নমুনা দিয়ে লেখা থেকে কথা তৈরি করুন।',
       ),
+      SegmentedButton<String>(
+        key: const Key('inference-mode'),
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          textStyle: const TextStyle(fontSize: 12),
+        ),
+        segments: const [
+          ButtonSegment(
+            value: 'local',
+            label: Text('ফোনে • ইংরেজি'),
+            icon: Icon(Icons.smartphone, size: 17),
+          ),
+          ButtonSegment(
+            value: 'server',
+            label: Text('নিজস্ব সার্ভার'),
+            icon: Icon(Icons.dns_outlined, size: 17),
+          ),
+        ],
+        selected: {c.inferenceMode},
+        onSelectionChanged: c.busy
+            ? null
+            : (values) {
+                _uploadConsent = false;
+                c.setInferenceMode(values.first);
+              },
+      ),
+      const SizedBox(height: 18),
+      if (c.isLocal)
+        const NoticePanel(
+          message:
+              'কণ্ঠের নমুনা ও লেখা ফোনেই থাকবে। নমুনার প্রথম ১২ সেকেন্ড ব্যবহার হবে। ফোনে একবারে সর্বোচ্চ ১৫০০ অক্ষরের ইংরেজি লেখা দিন।',
+        ),
+      if (c.isLocal) const SizedBox(height: 18),
       if (c.profiles.isEmpty) ...[
         EmptyPanel(
           icon: Icons.mic_none_rounded,
           title: 'আগে একটি কণ্ঠ যোগ করুন',
-          message:
-              'পরিষ্কার ৩–৩০ সেকেন্ডের রেকর্ডিং ও তার হুবহু লেখা প্রস্তুত রাখুন।',
+          message: c.isLocal
+              ? 'পরিষ্কার ৩–৩০ সেকেন্ডের রেকর্ডিং বাছুন। ফোনের ইংরেজি মডেলের জন্য প্রতিলিপি প্রয়োজন নেই।'
+              : 'পরিষ্কার ৩–৩০ সেকেন্ডের রেকর্ডিং ও তার হুবহু লেখা প্রস্তুত রাখুন।',
           action: FilledButton.icon(
             onPressed: c.busy ? null : _import,
             icon: const Icon(Icons.add),
@@ -421,14 +458,16 @@ class _StudioHomeState extends State<StudioHome> {
         enabled: !c.busy,
         minLines: 7,
         maxLines: 14,
-        maxLength: 3000,
+        maxLength: c.isLocal ? 1500 : 3000,
         onChanged: c.setText,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'আপনার লেখা',
           alignLabelWithHint: true,
           hintText: 'এখানে বাংলা বা ইংরেজিতে লিখুন…',
-          helperText: 'একবারে সর্বোচ্চ ৩০০০ অক্ষর',
+          helperText: c.isLocal
+              ? 'ফোনে সর্বোচ্চ ১৫০০ অক্ষর • শুধু ইংরেজি'
+              : 'একবারে সর্বোচ্চ ৩০০০ অক্ষর',
         ),
       ),
       Row(
@@ -461,22 +500,23 @@ class _StudioHomeState extends State<StudioHome> {
           ),
         ],
       ),
-      CheckboxListTile(
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        value: _uploadConsent,
-        onChanged: c.busy
-            ? null
-            : (value) => setState(() => _uploadConsent = value ?? false),
-        title: const Text(
-          'এই কাজের জন্য নমুনা ও লেখা আমার নির্বাচিত সার্ভারে পাঠাতে সম্মতি দিচ্ছি।',
-          style: TextStyle(fontSize: 13, height: 1.8),
+      if (!c.isLocal)
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: _uploadConsent,
+          onChanged: c.busy
+              ? null
+              : (value) => setState(() => _uploadConsent = value ?? false),
+          title: const Text(
+            'এই কাজের জন্য নমুনা ও লেখা আমার নির্বাচিত সার্ভারে পাঠাতে সম্মতি দিচ্ছি।',
+            style: TextStyle(fontSize: 13, height: 1.8),
+          ),
+          subtitle: const Text(
+            'ফোনের বাইরে প্রক্রিয়াকরণ হবে। এটি অফলাইন ক্লোনিং নয়।',
+            style: TextStyle(fontSize: 12, height: 1.7),
+          ),
         ),
-        subtitle: const Text(
-          'ফোনের বাইরে প্রক্রিয়াকরণ হবে। এটি অফলাইন ক্লোনিং নয়।',
-          style: TextStyle(fontSize: 12, height: 1.7),
-        ),
-      ),
       const SizedBox(height: 12),
       if (c.busy) ...[
         Card(
@@ -518,23 +558,39 @@ class _StudioHomeState extends State<StudioHome> {
       ] else
         FilledButton.icon(
           key: const Key('generate-button'),
-          onPressed: c.profiles.isEmpty || !_uploadConsent
+          onPressed:
+              c.profiles.isEmpty ||
+                  c.generationBlockReason.isNotEmpty ||
+                  (!c.isLocal && !_uploadConsent)
               ? null
-              : () => c.generate(uploadConsent: _uploadConsent),
+              : () => c.generate(uploadConsent: !c.isLocal && _uploadConsent),
           icon: const Icon(Icons.auto_awesome),
           label: const Text('অডিও তৈরি করুন'),
         ),
       const SizedBox(height: 16),
-      if (c.capabilities?.available != true)
-        NoticePanel(
-          message:
-              'কণ্ঠ তৈরি করতে উপযুক্ত মডেলসহ নিজস্ব সার্ভার প্রয়োজন। সেটিংসে সংযোগ পরীক্ষা করুন।',
-          action: IconButton(
-            tooltip: 'সেটিংস খুলুন',
-            onPressed: () => _navigate(4),
-            icon: const Icon(Icons.arrow_forward),
-          ),
+      if (c.generationBlockReason.isNotEmpty) ...[
+        NoticePanel(message: c.generationBlockReason),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (c.isLocal && c.language != 'en')
+              TextButton.icon(
+                key: const Key('choose-offline-english'),
+                onPressed: c.busy ? null : () => c.setLanguage('en'),
+                icon: const Icon(Icons.translate),
+                label: const Text('ফোনে ইংরেজি বেছে নিন'),
+              ),
+            OutlinedButton.icon(
+              key: const Key('generation-setup'),
+              onPressed: c.busy ? null : () => _navigate(4),
+              icon: const Icon(Icons.settings_outlined),
+              label: Text(c.isLocal ? 'ফোনের মডেল দেখুন' : 'সার্ভার সেটিংস'),
+            ),
+          ],
         ),
+      ],
       if (c.latest != null) ...[
         const SizedBox(height: 24),
         const StudioSection(
@@ -854,8 +910,10 @@ class _StudioHomeState extends State<StudioHome> {
     ),
     const NoticePanel(
       message:
-          'ফোনের ভেতরে ক্লোনিং মডেল নেই। ঐচ্ছিক নিজস্ব সার্ভারে বাংলা ও ইংরেজি মডেল চালাতে হবে। কোনো মূল্যযুক্ত সেবা বা পরীক্ষামূলক ক্রেডিট ব্যবহার করা হয় না। সার্ভার চালানোর যন্ত্র ও বিদ্যুৎ আপনার প্রয়োজন হবে।',
+          'ফোনে ইংরেজি কণ্ঠ তৈরি করতে নিচের মডেলটি নামান। বাংলা তৈরির জন্য এখনও উপযুক্ত মডেলসহ আলাদা সার্ভার প্রয়োজন। কোনো মূল্যযুক্ত সেবা বা পরীক্ষামূলক ক্রেডিট ব্যবহার করা হয় না।',
     ),
+    const SizedBox(height: 22),
+    _localModelManager(),
     const SizedBox(height: 22),
     Card(
       child: Padding(
@@ -1021,13 +1079,149 @@ class _StudioHomeState extends State<StudioHome> {
         onPressed: () => showLicensePage(
           context: context,
           applicationName: 'কণ্ঠ · AI Voice Studio',
-          applicationVersion: '0.1.0',
+          applicationVersion: '0.2.0',
           applicationLegalese: 'কণ্ঠ অনুমতি নিয়ে ব্যবহার করুন।',
         ),
         child: const Text('ওপেন সোর্স লাইসেন্স'),
       ),
     ),
   ]);
+
+  Widget _localModelManager() => Card(
+    key: const Key('local-model-manager'),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ফোনের ইংরেজি মডেল',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Pocket TTS · ইংরেজি কণ্ঠ ক্লোনিং',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'ডাউনলোড ৯৮.৩ মেগাবাইট; স্থাপনের পর প্রায় ১৯৮.৩ মেগাবাইট। স্থাপনের সময় অন্তত ৬০০ মেগাবাইট খালি রাখুন। একবার নামানোর পর ইংরেজি কণ্ঠ ও WAV রপ্তানিতে ইন্টারনেট, সার্ভার বা টোকেন লাগবে না। বাংলা এই মডেলে সমর্থিত নয়।',
+            style: TextStyle(fontSize: 12, height: 1.8, color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            c.pocket.ready
+                ? 'যাচাইকৃত মডেল প্রস্তুত'
+                : c.pocket.status.isEmpty
+                ? 'এখনও মডেল নামানো হয়নি'
+                : c.pocket.status,
+            style: const TextStyle(fontSize: 13, height: 1.8),
+          ),
+          if (c.pocket.error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                c.pocket.error,
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
+                  height: 1.8,
+                ),
+              ),
+            ),
+          if (c.pocket.busy) ...[
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: c.pocket.progress > 0
+                  ? c.pocket.progress.clamp(0, 1)
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              c.pocket.status,
+              style: const TextStyle(fontSize: 12, height: 1.8),
+            ),
+            TextButton.icon(
+              key: const Key('cancel-local-model'),
+              onPressed: c.pocket.cancel,
+              icon: const Icon(Icons.stop),
+              label: const Text('নামানো বাতিল করুন'),
+            ),
+          ] else ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (!c.pocket.ready)
+                  FilledButton.icon(
+                    key: const Key('download-local-model'),
+                    onPressed: c.busy
+                        ? null
+                        : () async {
+                            final accepted = await _confirm(
+                              'ফোনের মডেল নামাবেন?',
+                              'ডাউনলোড: ${PocketModelStore.totalDownloadBytes} বাইট (প্রায় ৯৮.৩ মেগাবাইট)। স্থাপনের পর প্রায় ১৯৮.৩ মেগাবাইট; অন্তত ৬০০ মেগাবাইট খালি রাখুন।\n\n${PocketModelStore.license}\n\nশুধু নিজের বা অনুমোদিত কণ্ঠ ব্যবহার করুন। ডাউনলোডের SHA-256 এবং প্রতিটি স্থাপিত ফাইল যাচাই হবে। এই পুরোনো পরিমাণায়িত মডেলটি শুধু ইংরেজির জন্য।',
+                              label: 'সম্মত, নামান',
+                            );
+                            if (accepted) {
+                              await c.downloadPocket();
+                            }
+                          },
+                    icon: const Icon(Icons.download),
+                    label: const Text('মডেল নামান'),
+                  ),
+                if (c.pocket.ready)
+                  OutlinedButton.icon(
+                    key: const Key('use-local-model'),
+                    onPressed: c.busy
+                        ? null
+                        : () {
+                            c.setInferenceMode('local');
+                            c.setLanguage('en');
+                            _navigate(1);
+                          },
+                    icon: const Icon(Icons.smartphone),
+                    label: const Text('ফোনে ইংরেজি তৈরি করুন'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: c.busy ? null : c.pocket.inspect,
+                  icon: const Icon(Icons.verified_outlined),
+                  label: const Text('ফাইল যাচাই'),
+                ),
+                TextButton.icon(
+                  key: const Key('remove-local-model'),
+                  onPressed: c.busy
+                      ? null
+                      : () async {
+                          if (await _confirm(
+                            'ফোনের মডেল মুছবেন?',
+                            'মডেল ও অসম্পূর্ণ ডাউনলোড মুছে যাবে। সংরক্ষিত কণ্ঠ, লেখা ও অডিওর ইতিহাস অক্ষত থাকবে।',
+                            label: 'মডেল মুছুন',
+                          )) {
+                            await c.removePocket();
+                          }
+                        },
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('মডেল মুছুন'),
+                ),
+              ],
+            ),
+          ],
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('উৎস ও লাইসেন্স', style: TextStyle(fontSize: 12)),
+            children: const [
+              SelectableText(
+                '${PocketModelStore.license}\n${PocketModelStore.attributionUrl}',
+                style: TextStyle(fontSize: 12, height: 1.8),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _modelManager() => Card(
     child: Padding(
@@ -1217,7 +1411,7 @@ class _StudioHomeState extends State<StudioHome> {
         children: [
           const StudioSection(title: 'গোপনীয়তা ও দায়িত্ব'),
           const Text(
-            'নিজের বা স্পষ্ট অনুমতি পাওয়া ব্যক্তির কণ্ঠই ব্যবহার করুন। কাউকে প্রতারিত করতে, পরিচয় নকল করতে বা অনুমতি ছাড়া কণ্ঠ ব্যবহার করতে এই অ্যাপ ব্যবহার করবেন না।\n\nকণ্ঠের নমুনা, লেখা ও তৈরি অডিও আপনার ফোনে স্থানীয়ভাবে সংরক্ষিত থাকে। অ্যাকাউন্ট, বিজ্ঞাপন, বিশ্লেষণ বা ট্র্যাকিং নেই।\n\nএই সংস্করণে কণ্ঠ ক্লোনিং ফোনে চলে না। আপনার নির্বাচিত নিজস্ব সার্ভারে নমুনা ও লেখা পাঠানোর আগে আলাদা সম্মতি নেওয়া হয়। শুধু বিশ্বাসযোগ্য সার্ভার ব্যবহার করুন। স্থানীয় নেটওয়ার্কে HTTP এনক্রিপ্ট করা নয়; গোপন রেকর্ডিংয়ের জন্য HTTPS ব্যবহার করুন।\n\nকণ্ঠের সংগ্রহ থেকে নমুনা ও ইতিহাস থেকে তৈরি অডিও মুছে ফেলা যায়। রপ্তানি বা অন্য অ্যাপে ভাগ করা কপি আলাদাভাবে মুছতে হবে। সার্ভার নিজের নিয়ন্ত্রণে রাখুন এবং তার সংরক্ষিত তথ্যও মুছুন।\n\nসব তৈরি কণ্ঠ কৃত্রিম। অডিও ভাগ করার সময় শ্রোতাকে জানিয়ে দিন।\n\nহালনাগাদ পরীক্ষা শুধু বোতাম চাপলে GitHub-এ অনুরোধ পাঠায়। কোনো অ্যাপ বা মডেল গোপনে ডাউনলোড হয় না।',
+            'নিজের বা স্পষ্ট অনুমতি পাওয়া ব্যক্তির কণ্ঠই ব্যবহার করুন। কাউকে প্রতারিত করতে, পরিচয় নকল করতে বা অনুমতি ছাড়া কণ্ঠ ব্যবহার করতে এই অ্যাপ ব্যবহার করবেন না।\n\nকণ্ঠের নমুনা, লেখা ও তৈরি অডিও আপনার ফোনে স্থানীয়ভাবে সংরক্ষিত থাকে। অ্যাকাউন্ট, বিজ্ঞাপন, বিশ্লেষণ বা ট্র্যাকিং নেই।\n\nফোনে ইংরেজি মোডে মডেল নামানোর পর নমুনা ও লেখা বাইরে পাঠানো হয় না। বাংলা বা ঐচ্ছিক সার্ভার মোডে আপনার নির্বাচিত নিজস্ব সার্ভারে নমুনা ও লেখা পাঠানোর আগে আলাদা সম্মতি নেওয়া হয়। শুধু বিশ্বাসযোগ্য সার্ভার ব্যবহার করুন। স্থানীয় নেটওয়ার্কে HTTP এনক্রিপ্ট করা নয়; গোপন রেকর্ডিংয়ের জন্য HTTPS ব্যবহার করুন।\n\nকণ্ঠের সংগ্রহ থেকে নমুনা ও ইতিহাস থেকে তৈরি অডিও মুছে ফেলা যায়। রপ্তানি বা অন্য অ্যাপে ভাগ করা কপি আলাদাভাবে মুছতে হবে। সার্ভার নিজের নিয়ন্ত্রণে রাখুন এবং তার সংরক্ষিত তথ্যও মুছুন।\n\nসব তৈরি কণ্ঠ কৃত্রিম। অডিও ভাগ করার সময় শ্রোতাকে জানিয়ে দিন।\n\nহালনাগাদ পরীক্ষা শুধু বোতাম চাপলে GitHub-এ অনুরোধ পাঠায়। কোনো অ্যাপ বা মডেল গোপনে ডাউনলোড হয় না।',
             style: TextStyle(height: 1.9),
           ),
           const SizedBox(height: 24),
@@ -1280,8 +1474,9 @@ class _ImportDetails {
 }
 
 class _ImportSheet extends StatefulWidget {
-  const _ImportSheet({this.profile});
+  const _ImportSheet({this.profile, required this.requiresTranscript});
   final VoiceProfile? profile;
+  final bool requiresTranscript;
   @override
   State<_ImportSheet> createState() => _ImportSheetState();
 }
@@ -1341,12 +1536,18 @@ class _ImportSheetState extends State<_ImportSheet> {
               minLines: 3,
               maxLines: 6,
               maxLength: 1000,
-              decoration: const InputDecoration(
-                labelText: 'রেকর্ডিংয়ে যা বলা হয়েছে',
+              decoration: InputDecoration(
+                labelText: widget.requiresTranscript
+                    ? 'রেকর্ডিংয়ে যা বলা হয়েছে'
+                    : 'রেকর্ডিংয়ের লেখা (ঐচ্ছিক)',
                 alignLabelWithHint: true,
-                helperText: 'শব্দে শব্দে হুবহু লিখুন; মডেলের জন্য এটি প্রয়োজন।',
+                helperText: widget.requiresTranscript
+                    ? 'সার্ভারের মডেলের জন্য শব্দে শব্দে হুবহু লিখুন।'
+                    : 'ফোনের ইংরেজি মডেলে প্রয়োজন নেই; পরে সার্ভারে ব্যবহার করলে লাগবে।',
               ),
-              validator: (value) => value == null || value.trim().isEmpty
+              validator: (value) =>
+                  widget.requiresTranscript &&
+                      (value == null || value.trim().isEmpty)
                   ? 'নমুনার হুবহু লেখা দিন।'
                   : null,
             ),

@@ -11,15 +11,70 @@ import '../domain/models.dart';
 import '../data/audio_service.dart';
 import '../data/inference_client.dart';
 import '../data/local_store.dart';
+import '../data/pocket_engine.dart';
+import '../data/pocket_model_store.dart';
 
 class AppController extends ChangeNotifier with WidgetsBindingObserver {
   AppController(
     this.store, {
     FlutterSecureStorage? secureStorage,
     this.clientFactory,
+    PocketModelStore? pocketStore,
+    PocketEngine? pocketEngine,
+    this.referenceDecoder,
   }) : secure = secureStorage ?? const FlutterSecureStorage(),
-       audio = AudioService(store);
+       audio = AudioService(store),
+       pocket =
+           pocketStore ??
+           PocketModelStore(Directory('${store.root.path}/pocket-models')),
+       localEngine = pocketEngine ?? PocketEngine();
   final LocalStore store;
+  final PocketModelStore pocket;
+  final PocketEngine localEngine;
+  final Future<ReferenceWave> Function(String)? referenceDecoder;
+  String inferenceMode = 'local';
+  bool get isLocal => inferenceMode == 'local';
+  String get generationBlockReason {
+    if (isLocal) {
+      if (language != 'en') {
+        return 'বাংলার জন্য পরীক্ষিত ফোনের মডেল নেই। ফোনে ইংরেজি তৈরি করুন, অথবা উপযুক্ত বাংলা মডেলসহ আলাদা সার্ভার যুক্ত করুন।';
+      }
+      if (!pocket.ready) {
+        return 'ফোনে ইংরেজি কণ্ঠ তৈরির আগে সেটিংস থেকে Pocket মডেলটি একবার নামান। সার্ভার বা টোকেন লাগবে না।';
+      }
+      return '';
+    }
+    if (backendUrl.isEmpty || token.isEmpty) {
+      return 'এই মোডে আলাদা যন্ত্রে চলা নিজস্ব সার্ভার প্রয়োজন। এমন সার্ভার না থাকলে ফোনে ইংরেজি মোড ব্যবহার করুন। কোনো সার্ভার ঠিকানা স্বয়ংক্রিয়ভাবে দেওয়া হয় না।';
+    }
+    if (capabilities != null && !capabilities!.languages.contains(language)) {
+      return 'নির্বাচিত ভাষার মডেল সার্ভারে প্রস্তুত নেই।';
+    }
+    return '';
+  }
+
+  void setInferenceMode(String mode) {
+    if (busy || !['local', 'server'].contains(mode)) {
+      return;
+    }
+    inferenceMode = mode;
+    error = '';
+    notifyListeners();
+    unawaited(_guard(_save));
+  }
+
+  Future<void> downloadPocket() => _guard(() async {
+    if (busy) {
+      throw const StudioException('আগে চলমান কাজ শেষ করুন।');
+    }
+    await pocket.download();
+  });
+  Future<void> removePocket() => _guard(() async {
+    if (busy) {
+      throw const StudioException('আগে চলমান কাজ শেষ করুন।');
+    }
+    await pocket.remove();
+  });
   final InferenceClient Function(String, String)? clientFactory;
   Timer? _textSaveTimer;
   final FlutterSecureStorage secure;
@@ -62,6 +117,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> initialize() async {
     WidgetsBinding.instance.addObserver(this);
+    pocket.onChanged = notifyListeners;
     await _guard(() async {
       await store.initialize();
       final data = await store.read();
@@ -76,9 +132,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       text = data['text'] as String? ?? '';
       language = data['language'] as String? ?? 'bn';
       backendUrl = data['backendUrl'] as String? ?? '';
+      inferenceMode =
+          data['inferenceMode'] as String? ??
+          (backendUrl.isEmpty ? 'local' : 'server');
       selectedProfileId = data['selectedProfileId'] as String?;
       token = await secure.read(key: 'backend-token') ?? '';
       _loaded = true;
+      await pocket.inspect();
     });
   }
 
@@ -110,6 +170,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       'text': text,
       'language': language,
       'backendUrl': backendUrl,
+      'inferenceMode': inferenceMode,
       'selectedProfileId': selectedProfileId,
     };
     final write = _writes.then((_) => store.write(state));
@@ -155,7 +216,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (!consent) {
       throw const StudioException('কণ্ঠ ব্যবহারের অনুমতি নিশ্চিত করুন।');
     }
-    final label = validateName(name), transcript = validateText(referenceText);
+    final label = validateName(name),
+        transcript = isLocal
+            ? referenceText.trim()
+            : validateText(referenceText);
     if (transcript.length > 1000) {
       throw const StudioException(
         'রেফারেন্সের প্রতিলিপি ১০০০ অক্ষরের মধ্যে লিখুন।',
@@ -216,6 +280,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     'text': text,
     'language': language,
     'backendUrl': backendUrl,
+    'inferenceMode': inferenceMode,
     'selectedProfileId': selectedProfileId,
   };
   Future<void> replaceProfile(
@@ -226,7 +291,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (!consent) {
       throw const StudioException('কণ্ঠ ব্যবহারের অনুমতি নিশ্চিত করুন।');
     }
-    final transcript = validateText(referenceText);
+    final transcript = isLocal
+        ? referenceText.trim()
+        : validateText(referenceText);
     if (transcript.length > 1000) {
       throw const StudioException(
         'রেফারেন্সের প্রতিলিপি ১০০০ অক্ষরের মধ্যে লিখুন।',
@@ -312,6 +379,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (busy) {
       return;
     }
+    if (isLocal) {
+      await _generateLocal();
+      return;
+    }
     busy = true;
     _cancelled = false;
     progress = 0;
@@ -328,6 +399,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final profile = selectedProfile;
       if (profile == null) {
         throw const StudioException('আগে একটি কণ্ঠ নির্বাচন করুন।');
+      }
+      if (profile.referenceText.trim().isEmpty) {
+        throw const StudioException(
+          'সার্ভার মডেলের জন্য নমুনার হুবহু লেখা প্রয়োজন। কণ্ঠের নমুনা বদলানোর সময় লেখাটি যোগ করুন।',
+        );
       }
       final content = validateText(text), lang = language;
       final client = _client();
@@ -435,10 +511,98 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<void> _generateLocal() async {
+    busy = true;
+    _cancelled = false;
+    progress = 0;
+    error = '';
+    status = 'ফোনে মডেল প্রস্তুত হচ্ছে…';
+    notifyListeners();
+    File? pending;
+    await _guard(() async {
+      final blocked = generationBlockReason;
+      if (blocked.isNotEmpty) {
+        throw StudioException(blocked);
+      }
+      final profile = selectedProfile;
+      if (profile == null) {
+        throw const StudioException('আগে একটি কণ্ঠ নির্বাচন করুন।');
+      }
+      final content = validateText(text);
+      pocketSegments(content);
+      await pocket.inspect();
+      if (!pocket.ready) {
+        throw const StudioException(
+          'ফোনের মডেল নষ্ট বা অনুপস্থিত। সেটিংস থেকে আবার নামান।',
+        );
+      }
+      if (_cancelled) {
+        return;
+      }
+      final reference = await (referenceDecoder ?? audio.decodeReference)(
+        profile.path,
+      );
+      if (_cancelled) {
+        return;
+      }
+      final id = newId();
+      pending = File(store.audioPath(id, 'wav'));
+      final duration = await localEngine.generate(
+        modelDirectory: pocket.modelDirectory,
+        reference: reference,
+        text: content,
+        outputPath: pending!.path,
+        onProgress: (p) {
+          progress = p;
+          status = 'ফোনে কৃত্রিম কণ্ঠ তৈরি হচ্ছে…';
+          notifyListeners();
+        },
+      );
+      if (_cancelled) {
+        return;
+      }
+      final record = AudioRecord(
+        id: id,
+        name: 'কৃত্রিম কণ্ঠ ${history.length + 1}',
+        wavPath: pending!.path,
+        profileName: profile.name,
+        language: 'en',
+        text: content,
+        createdAt: DateTime.now(),
+        durationSeconds: duration,
+      );
+      history = [record, ...history];
+      try {
+        await _save();
+      } catch (_) {
+        history.removeWhere((r) => r.id == id);
+        rethrow;
+      }
+      latest = record;
+      pending = null;
+      progress = 1;
+      status = 'ফোনেই কণ্ঠ তৈরি ও সংরক্ষণ হয়েছে। কোনো তথ্য পাঠানো হয়নি।';
+    });
+    if (pending != null) {
+      await _guard(() => store.deleteAudio(pending!.path));
+    }
+    if (_cancelled) {
+      error = '';
+      status = 'কাজ বাতিল হয়েছে।';
+    }
+    busy = false;
+    notifyListeners();
+  }
+
   Future<void> cancel() async {
     _cancelled = true;
     status = 'বাতিল করা হচ্ছে…';
     notifyListeners();
+    if (isLocal) {
+      localEngine.cancel();
+      await _guard(audio.cancelDecode);
+      return;
+    }
     final id = _jobId, client = _active;
     if (id != null && client != null) {
       await _guard(() => client.cancelJob(id));
@@ -655,6 +819,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _textSaveTimer?.cancel();
+    localEngine.cancel();
+    pocket.onChanged = null;
+    unawaited(pocket.cancel());
     _disposed = true;
     _cancelled = true;
     _active?.close();

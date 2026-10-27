@@ -1,146 +1,141 @@
 # কণ্ঠশিল্প · AI Voice Studio
 
-A Bengali-first Flutter Android voice library and reference-based speech studio.
-No advertising, accounts, tracking, subscriptions, paid AI APIs, or bundled model
-weights. **Cloning requires the optional self-hosted inference backend. This is
-not standalone offline voice cloning on Android.**
+Bengali-first Flutter Android voice studio. **Version0.2 adds real on-device
+English reference-audio cloning with Pocket TTS/sherpa-onnx.** After the explicit
+one-time model download, English generation needs no server URL, access token,
+account, paid API, or Internet. **Bengali cloning is not supported by the local
+model.** The optional Python backend remains separate.
 
-## Current capability boundary
+## Generate on your phone — no server settings
 
-The Android client implements reference import, reusable local voice profiles,
-Bengali/English text editing, consent-gated backend generation, cancellation,
-playback/seek, local history, WAV export, sharing, and optional backend MP3
-encoding. Settings manage the backend, its verified model downloads, and an
-opt-in GitHub Release update check. The complete Bengali interface uses bundled
-Noto Serif Bengali (SIL OFL).
+1. Choose **ফোনে · ইংরেজি** in the generation screen, then choose **ইংরেজি**.
+2. Open Settings → phone model. Review the size/license and explicitly download
+   Pocket's model:98,336,520bytes (about98MB), about198MB installed. Keep at least
+   600MB free during installation. SHA-256 and individual files are verified;
+   downloads can resume/retry and be cancelled. There are no model weights in
+   the APK and no silent model download.
+3. Import a clear3–30second WAV/MP3/M4A recording of a voice you own or have
+   explicit permission to use. The first12seconds condition the local model.
+   A transcript is optional for Pocket; existing server models require it.
+4. Select that profile, enter English text (up to1,500characters locally), and
+   generate. Your recording and text stay on the phone. Keep the app open.
+5. Play, seek, share or save WAV. History and profiles are stored privately.
 
-The real inference adapters are IndicF5 for Bengali and F5-TTS v1 Base plus Vocos
-for English. IndicF5 explicitly lists Bengali; F5 base does not. Bengali's gated
-weights require free upstream access acceptance and a backend Hugging Face token.
-Do not treat the presence of either adapter or passing mocked tests as successful
-voice cloning. See [model evidence and validation](docs/models.md).
+If Bengali is selected locally, the app explains the missing Bengali engine and
+provides an English-mode action. It does **not** ask for imaginary server details
+or pronounce Bengali using an English engine. To try Bengali, you still need a
+separate compatible inference host and gated IndicF5 access; Bengali synthesis
+has not been validated here. If you only own this Android phone, Bengali cloning
+remains blocked. GitHub Actions is a build service, not permanent inference hosting.
 
-**If you only own an Android phone and have no suitable separate inference host,
-the primary Bengali cloning workflow is blocked.** GitHub Actions can build an
-APK but is not permanent free AI hosting. This project does not conceal that gap
-with preset voices, recordings, paid APIs, or temporary cloud credits.
+| Feature | Phone/offline after model installation | Separate backend |
+|---|---|---|
+| English reference cloning | Pocket native ONNX engine | Optional F5 adapter |
+| Bengali reference cloning | **Unavailable** | IndicF5 candidate; gated/unvalidated |
+| Profiles, history, playback, WAV sharing/export | Yes | No |
+| MP3 encoding | Not implemented locally | Optional explicit synthetic-WAV upload |
+| Model installation / opt-in update check | Internet needed for these actions | No paid service |
 
-## Install from GitHub using your phone
+## Download and preserve your old installation
 
-1. Open this repository's **Actions → Android APK** workflow. Run it manually on
-   the implementation branch, or use a successful existing run.
-2. After the build succeeds, download **AI-Voice-Studio-Android-APK** from that
-   run's artifacts. GitHub may require you to sign in. Extract the ZIP and open
-   `app-release.apk`; Android will ask you to allow installation from your browser
-   or file manager. Verify the adjacent SHA-256 checksum when possible.
-3. Tagged `v*` builds also publish an APK and checksum to GitHub Releases after
-   both Android and backend checks pass. No APK is available until a build has
-   actually succeeded.
+Open **Actions → Android APK** and download a successful run's artifact.
 
-These builds currently use Android **test signing**, not a private production
-release identity. Ephemeral CI keys may change, so installing a later test build
-may require uninstalling the old one (which deletes private app data). Configure
-private release signing before trusted public distribution. Never commit a
-private release keystore or its password. Optional CI signing reads repository secrets
-`ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, and
-`ANDROID_KEY_ALIAS`. They must describe the same safely backed-up private key.
-The available GitHub integration cannot manage repository secrets (HTTP 403), so
-private production signing has not been configured or tested.
+- **AI-Voice-Studio-Offline-Safe-Install-APK** contains
+  `app-offline-safe-install.apk`. This installs as **কণ্ঠশিল্প অফলাইন** with a
+  separate application ID, so the old app and its private profiles/history stay
+  untouched. Existing private data cannot automatically cross Android's app
+  sandbox; reimport original recordings to try the new app, and keep the old app
+  for its existing history. Do not uninstall it to force an update.
+- **AI-Voice-Studio-Android-APK** contains the normal-ID update APK. An in-place
+  update preserves the existing schema1 library **only if it is signed with the
+  same key as the installed app**. Earlier CI test builds used ephemeral signing
+  keys, which cannot be recovered from their APKs. A signature mismatch is not
+  fixed by increasing the version number. Do not uninstall and lose data.
 
-Android requirements: Android 8.0/API 26 or newer, ARM64. There is no measured
-phone RAM minimum for AI inference because AI inference is not executed there.
-For actual host requirements and model sizes see [backend setup](backend/README.md).
-No Android Studio, Termux, or personal computer is needed to **build/install the
-APK**. The optional backend still needs separately owned/controlled hardware;
-this requirement cannot be removed by the build workflow.
+Both variants are currently personal test builds unless private signing secrets
+are configured. GitHub may require sign-in to download artifact ZIPs. Extract the
+APK, verify the adjacent SHA-256 when possible, and authorize installation from
+that browser/file manager. No Termux, Android Studio or personal computer is
+needed to build or install either APK. Artifacts expire after30days; tagged builds
+can publish the normal APK through GitHub Releases. Downloadability is claimed
+only for successful actual workflow runs.
 
-## Use
+Optional private signing reads repository secrets `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_STORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`. The available
+GitHub integration cannot manage these secrets. Never commit a private keystore.
 
-- In the voice library, select a 3–30 second WAV, MP3, or decodable M4A recording
-  (maximum 25 MiB). Give it a name and the accurate transcript of what is spoken.
-  Confirm ownership or explicit permission. A quiet single-speaker reference
-  works best; the app rejects missing/empty/undecodable or oversized input.
-- Set up the optional [private backend](backend/README.md). Enter its address
-  and random access token in settings. Tokens use Android secure storage. HTTPS
-  is recommended; HTTP is allowed only for private IPv4/localhost/`.local`
-  endpoints and does **not** encrypt network traffic.
-- Connect, review each model's real size/license and custom-code notice, and
-  explicitly install the models on the backend. English needs `f5` and `vocos`;
-  Bengali needs `indicf5` plus its compatible upstream runtime and gated access.
-  The app downloads no multi-gigabyte models onto your phone.
-- Choose a saved voice, select বাংলা or ইংরেজি, enter up to 3,000 characters,
-  and separately authorize sending that recording and text to your backend.
-  Longer input is segmented by the backend. Generated speech is labeled synthetic.
-- Preview the result and save/share WAV. MP3 export explicitly uploads the
-  **generated** WAV to your backend for actual FFmpeg encoding. WAV export works
-  without the backend. Reference profiles and completed history remain local.
+## What is genuinely tested
 
-Do not use this app for deceptive impersonation. Use only voices you own or have
-explicit permission to clone. Verify pronunciation and output before sharing.
+See [Android investigation and real evidence](docs/android-inference.md).
+The exact Dart worker used by Flutter has generated new English speech using
+two different real reference recordings and the public, checksum-verified Pocket
+weights on Linux CPU, without the Python backend. Deterministic runs with the
+same text/seed changed output when reference audio changed. Actual native
+cancellation and model installation/recovery are checked separately. These are
+not mocks or prerecorded substitute outputs.
 
-## Privacy and reliability
+The Android ARM64 runtime is packaged through sherpa-onnx2.0.1, and Android builds
+compile the real native decoding/FFI route. **No physical Android inference device
+is attached to this cloud environment.** Linux timing/RAM measurements do not prove
+phone performance, and no minimum phone RAM or subjective speaker-similarity
+score is invented. Android8/API26+, ARM64 is the packaging target. Phone decoding,
+model loading, synthesis and battery behavior still need device validation.
 
-The app requests Internet access; audio dependencies also declare network-state
-access and a signature-only internal receiver permission. File selection/export uses Android's
-system picker and no broad storage or microphone permission. Android cloud backup
-is disabled. Profiles, transcripts, and history are in private app storage.
-Reference metadata/history writes are serialized with atomic replacement and a
-recovery copy. Audio paths are generated identifiers and validated on read/delete.
-The native audio probe runs off the UI thread and checks a real decoded frame.
+## Architecture, privacy and optional backend
 
-Nothing uploads until generation authorization. LAN generation uses a bearer
-access token and rejects redirects; use HTTPS on networks you do not fully trust.
-The backend runs one generation at a time, isolates/cancels the model subprocess,
-verifies model integrity, and removes request/reference data after completion or
-cancellation. Outputs expire after 30 minutes and are removed on server restart.
-The app requests immediate server cleanup after downloading. If cleanup fails,
-a visible error explains that retry/network access is needed; backend expiry
-still applies. Shared/exported files leave private app storage and are managed
-by the recipient or chosen destination.
+The Bengali UI, saved profile/history schema, text editor, audio playback,
+consent controls and export are preserved. `lib/data/pocket_engine.dart` runs real
+ONNX inference in a worker isolate; reference decoding uses Android MediaCodec.
+Native PCM processing is bounded to12seconds, downmixes stereo, and frees codecs.
+The model worker checks cancellation during native callbacks and frees its native
+engine before completing. Long English text is segmented and written as real
+PCM16 WAV. Local models and partial downloads can be removed in Settings.
 
-Generation is not a foreground Android service: keep the app open during a job.
-Android termination can lose an unfinished generation; saved profiles, draft text
-and completed history survive. Remote work expires on the backend. No exact RAM,
-quality, or battery guarantee is made. Deleting a voice removes its reference;
-completed synthetic audio remains until separately deleted from history.
-The system file picker's temporary import cache is cleared after copying.
+The server adapter remains behind an explicit **নিজস্ব সার্ভার** mode and its
+separate upload consent. See [backend setup](backend/README.md). Local English
+never requests or uses those server credentials. MP3 export still asks permission
+before sending **generated** WAV to that backend for actual encoding; no extension
+renaming is used. The phone route does not load Python/Gradio/Pillow dependencies;
+the old optional backend's unresolved dependency advisories remain documented.
 
-## Development and verification
+No ads, analytics, hidden telemetry, registration or paid hosting are introduced.
+Android broad storage/microphone permissions are not requested; system file
+pickers handle import/export. Android backup is disabled. Private library writes
+are atomic with a recovery copy, and managed paths are validated. Synthetic speech
+is labeled. Exported/shared copies are managed by their destination. An interrupted
+inference may need retry, while saved profiles/history and draft text persist.
 
-Pinned Flutter **3.35.7** / Dart **3.9.2**, Java **17**, AGP **8.9.1**, Kotlin
-**2.1.0**, Gradle **8.12**, compile SDK **36**, minimum SDK **26**. Direct Dart
-dependencies are pinned and the resolved lockfile is committed.
+## Build and checks
+
+Pinned Flutter3.35.7/Dart3.9.2, Java17, AGP8.9.1, Kotlin2.1.0, Gradle8.12,
+compile SDK36. Direct dependencies and the resolved lockfile are pinned.
 
 ```sh
 flutter pub get --enforce-lockfile
-dart format --output=none --set-exit-if-changed lib test
+dart format --output=none --set-exit-if-changed lib test tool
 flutter analyze
 flutter test
 flutter build apk --release --target-platform android-arm64
-# API/codec/security tests; no GPU/model download needed:
+# Real model inference, not a mock (models and reference supplied explicitly):
+dart run tool/pocket_smoke.dart /path/to/pocket-model /path/to/reference.wav /path/to/new-synthetic.wav
+# Optional API/codec/security tests:
 python -m venv .venv-backend
-.venv-backend/bin/pip install -r backend/requirements.lock.txt
+.venv-backend/bin/python -m pip install -r backend/requirements.lock.txt
 .venv-backend/bin/python -m pytest backend/tests -q
 ```
 
-`lib/domain` holds validation/entities; `lib/data` holds private storage, native
-audio access, and the replaceable inference adapter; `lib/application` coordinates
-jobs/library/privacy; `lib/presentation` provides the Bengali UI. Kotlin handles
-Android audio inspection. The independent FastAPI backend owns model installation,
-real inference, bounded uploads, and real audio transcoding.
-
-Flutter tests use mocked native channels/inference where required. Backend tests
-include real FFmpeg and process cancellation, with neural inference reported
-separately. See [validation report](docs/validation.md) for executed results and
-remaining limits. The workflow also audits Python dependencies. Review upstream
-advisories and license changes when updating dependencies.
+GitHub Actions runs formatting, analysis, unit/widget tests, **real Pocket
+reference-audio synthesis and cancellation**, then builds and uploads both Android
+variants. It separately tests/audits the optional API. Neither a successful Linux
+inference nor an APK build is described as a physical-phone benchmark.
 
 ## Licenses
 
-New application/backend code: MIT ([LICENSE](LICENSE)). Noto Serif Bengali: SIL
-OFL ([font license](assets/fonts/OFL.txt)), bundled in Android's license page.
-Flutter-generated Android scaffolding follows Flutter's BSD-3-Clause terms.
-Model licenses remain separate: IndicF5 model metadata declares MIT; F5 model
-weights are CC-BY-NC-4.0 (personal/noncommercial use), Vocos MIT. Models are not
-redistributed here. DIGI LABS is source-available and its code/assets were not
-copied. See [evaluation](docs/models.md) and the app's dependency license screen.
+New application code: MIT. Noto Serif Bengali: SIL OFL (bundled license page).
+sherpa-onnx: Apache2.0; Pocket code: MIT. The chosen downloaded Pocket export
+contains CC-BY4.0 licensing and a personal/noncommercial instruction in its README;
+both are retained and shown before download. Attribution: Kyutai Pocket TTS,
+KevinAHM's ONNX export, k2-fsa sherpa-onnx. The requested personal use is treated
+conservatively as noncommercial. See [license evidence](docs/android-inference.md).
+F5 optional backend weights remain CC-BY-NC4.0, Vocos MIT, IndicF5 metadata MIT.
+No model weights or DIGI LABS code are bundled in the repository/APK.

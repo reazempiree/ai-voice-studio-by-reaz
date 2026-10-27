@@ -32,10 +32,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(VoiceStudioApp(controller: controller));
       expect(find.text('আপনার কণ্ঠ, আপনার গল্প'), findsOneWidget);
-      expect(
-        find.textContaining('ফোনের ভেতরে কণ্ঠ ক্লোনিং চালু নেই'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('ফোনে ইংরেজি কণ্ঠ ক্লোনিং'), findsOneWidget);
       await tester.tap(find.byType(NavigationDestination).at(2));
       await tester.pumpAndSettle();
       expect(find.text('আপনার প্রথম কণ্ঠ'), findsOneWidget);
@@ -45,10 +42,7 @@ void main() {
       await tester.tap(find.byType(NavigationDestination).at(4));
       await tester.pumpAndSettle();
       expect(find.text('নিজস্ব সার্ভার সংযোগ'), findsOneWidget);
-      expect(
-        find.textContaining('ফোনের ভেতরে ক্লোনিং মডেল নেই'),
-        findsOneWidget,
-      );
+      expect(find.text('ফোনের ইংরেজি মডেল'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -83,6 +77,9 @@ void main() {
   testWidgets(
     'generation requires separate permission to upload a saved reference',
     (tester) async {
+      controller.inferenceMode = 'server';
+      controller.backendUrl = 'https://voice.local';
+      controller.token = 'x' * 32;
       controller.profiles = [
         VoiceProfile(
           id: 'a' * 32,
@@ -116,9 +113,108 @@ void main() {
     },
   );
 
+  testWidgets('local English needs no server token or upload checkbox', (
+    tester,
+  ) async {
+    controller.language = 'en';
+    controller.pocket.ready = true; // Availability-only UI test, not inference.
+    controller.profiles = [
+      VoiceProfile(
+        id: 'a' * 32,
+        name: 'নিজের কণ্ঠ',
+        path: '${directory.path}/audio/${'b' * 32}.wav',
+        referenceText: 'Hello.',
+        createdAt: DateTime(2026),
+        durationSeconds: 8,
+      ),
+    ];
+    controller.selectedProfileId = 'a' * 32;
+    expect(controller.backendUrl, isEmpty);
+    expect(controller.token, isEmpty);
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(VoiceStudioApp(controller: controller));
+    await tester.tap(find.byType(NavigationDestination).at(1));
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('generate-button')))
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      find.textContaining('কণ্ঠের নমুনা ও লেখা ফোনেই থাকবে'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'Bengali is blocked locally with an actionable English alternative',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(VoiceStudioApp(controller: controller));
+      await tester.tap(find.byType(NavigationDestination).at(1));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('generate-button')))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        find.textContaining('বাংলার জন্য পরীক্ষিত ফোনের মডেল নেই'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('choose-offline-english')),
+      );
+      await tester.tap(find.byKey(const Key('choose-offline-english')));
+      await tester.pumpAndSettle();
+      expect(controller.language, 'en');
+      expect(controller.error, isEmpty);
+      await tester.ensureVisible(find.byKey(const Key('generation-setup')));
+      await tester.tap(find.byKey(const Key('generation-setup')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('local-model-manager')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'local model download requires an explicit size and license confirmation',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(VoiceStudioApp(controller: controller));
+      await tester.tap(find.byType(NavigationDestination).at(4));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('download-local-model')));
+      await tester.tap(find.byKey(const Key('download-local-model')));
+      await tester.pumpAndSettle();
+      expect(find.text('ফোনের মডেল নামাবেন?'), findsOneWidget);
+      expect(find.textContaining('98336520'), findsOneWidget);
+      expect(find.textContaining('CC-BY-4.0'), findsWidgets);
+      expect(controller.pocket.busy, isFalse);
+      await tester.tap(find.text('ফিরে যান'));
+      await tester.pumpAndSettle();
+      expect(controller.pocket.busy, isFalse);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('reference import is gated by ownership permission', (
     tester,
   ) async {
+    controller.inferenceMode = 'server';
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -139,6 +235,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('একটি নাম লিখুন।'), findsOneWidget);
     expect(find.text('নমুনার হুবহু লেখা দিন।'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('local import does not require a reference transcript', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(VoiceStudioApp(controller: controller));
+    await tester.tap(find.byType(NavigationDestination).at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('রেকর্ডিং বাছুন'));
+    await tester.pumpAndSettle();
+    expect(find.text('রেকর্ডিংয়ের লেখা (ঐচ্ছিক)'), findsOneWidget);
+    await tester.ensureVisible(find.byType(CheckboxListTile));
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('import-select-file')));
+    await tester.tap(find.byKey(const Key('import-select-file')));
+    await tester.pumpAndSettle();
+    expect(find.text('একটি নাম লিখুন।'), findsOneWidget);
+    expect(find.text('নমুনার হুবহু লেখা দিন।'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets('all destinations fit a small Android screen', (tester) async {

@@ -27,7 +27,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "studio.reaz.ai_voice_studio"
+        applicationId = if (System.getenv("VOICE_STUDIO_SIDE_BY_SIDE") == "1") "studio.reaz.ai_voice_studio.offline" else "studio.reaz.ai_voice_studio"
+        manifestPlaceholders["studioAppLabel"] = if (System.getenv("VOICE_STUDIO_SIDE_BY_SIDE") == "1") "কণ্ঠশিল্প অফলাইন" else "কণ্ঠশিল্প"
         minSdk = 26
         ndk { abiFilters += "arm64-v8a" }
         targetSdk = flutter.targetSdkVersion

@@ -1,3 +1,9 @@
+> Version0.2 update: this report's F5/IndicF5 backend findings remain valid,
+> but the app now also implements local English Pocket TTS through Android
+> sherpa-onnx. See [current Android investigation](android-inference.md).
+> Bengali remains unsupported locally. The Python security findings below apply
+> to that optional backend runtime, not the on-device Pocket route.
+
 # Model and reference-project evaluation
 
 Evidence checked against upstream sources on 2026-10-27. Published model support,

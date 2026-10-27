@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'pocket_engine.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import '../domain/models.dart';
@@ -61,6 +63,29 @@ class AudioService {
       await store.deleteAudio(path);
       rethrow;
     }
+  }
+
+  Future<ReferenceWave> decodeReference(String path) async {
+    try {
+      final data = await channel.invokeMapMethod<String, dynamic>(
+        'decodeReference',
+        {'path': path},
+      );
+      final samples = data?['samples'];
+      final rate = data?['sampleRate'];
+      if (samples is! Float32List || rate is! int || samples.isEmpty) {
+        throw const StudioException('কণ্ঠের নমুনা ডিকোড করা যায়নি।');
+      }
+      return ReferenceWave(samples, rate);
+    } on PlatformException {
+      throw const StudioException(
+        'কণ্ঠের নমুনা ডিকোড করা যায়নি। অন্য WAV, MP3 বা M4A দিন।',
+      );
+    }
+  }
+
+  Future<void> cancelDecode() async {
+    await channel.invokeMethod<void>('cancelDecode');
   }
 
   Future<double> inspect(String path) async {

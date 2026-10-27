@@ -126,6 +126,7 @@ void main() {
     fake = FakeInference();
     controller = AppController(store, clientFactory: (_, _) => fake);
     await controller.initialize();
+    controller.inferenceMode = 'server';
     controller.backendUrl = 'http://127.0.0.1:8000';
     controller.token = 'x' * 32;
     final profile = VoiceProfile(
